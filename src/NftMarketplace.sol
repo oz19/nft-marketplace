@@ -17,7 +17,8 @@ contract NftMarketplace is Ownable {
 
     mapping(address => mapping(uint256 => Listing)) listings;
 
-    event NftListed(Listing);
+    event NftListed(address indexed seller, address indexed nftCollection, uint256 indexed tokenId, uint256 price);
+    event NftListingCancelled(address indexed seller, address indexed nftCollection, uint256 indexed tokenId);
 
     constructor () Ownable(msg.sender) {
 
@@ -39,8 +40,17 @@ contract NftMarketplace is Ownable {
 
         listings[nftCollection_][tokenId_] = listing_;
 
-        emit NftListed(listing_);
+        emit NftListed(listing_.seller, listing_.nftCollection, listing_.tokenId, listing_.price);
 
+    }
+
+    function cancelNftListing(address nftCollection_, uint256 tokenId_) external {
+        Listing memory listing_ = listings[nftCollection_][tokenId_];
+        require(listing_.seller == msg.sender, "You are not the owner");
+
+        delete listings[nftCollection_][tokenId_];
+
+        emit NftListingCancelled(listing_.seller, listing_.nftCollection, listing_.tokenId);
     }
 
 }
