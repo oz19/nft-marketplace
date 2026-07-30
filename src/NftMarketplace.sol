@@ -15,7 +15,7 @@ contract NftMarketplace is ReentrancyGuard {
         uint256 price;
     }
 
-    mapping(address => mapping(uint256 => Listing)) listings;
+    mapping(address => mapping(uint256 => Listing)) public listings;
 
     event NftListed(address indexed seller, address indexed nftCollection, uint256 indexed tokenId, uint256 price);
     event NftListingCancelled(address indexed seller, address indexed nftCollection, uint256 indexed tokenId);

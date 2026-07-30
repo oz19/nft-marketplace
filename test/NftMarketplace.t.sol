@@ -23,7 +23,7 @@ contract TestNftMarketplace is Test {
     address deployer = vm.addr(1);
     address user = vm.addr(2);
     MockNft mockNft;
-    uint256 firstTokenId = 0;
+    uint256 tokenId = 0;
     
     function setUp() public {
         vm.startPrank(deployer);
@@ -32,13 +32,50 @@ contract TestNftMarketplace is Test {
 
         vm.startPrank(user);
         mockNft = new MockNft();
-        mockNft.mint(user, firstTokenId);
+        mockNft.mint(user, tokenId);
         vm.stopPrank();
-
     }
 
     function testMintNft() public view {
-        address owner_ = mockNft.ownerOf(firstTokenId);
+        address owner_ = mockNft.ownerOf(tokenId);
         assert(owner_ == user);
+    }
+
+    function testNftListingFailsWhenPriceIsZero() public {
+        vm.startPrank(user);
+
+        uint256 price_ = 0;
+
+        vm.expectRevert("Price must be higher than 0");        
+        marketplace.listNft(address(mockNft), tokenId, price_);
+
+        vm.stopPrank();
+    }
+
+    function testNftListingFailsWhenNotRequestedByOwner() public {
+        address notTheOwner = vm.addr(3);
+        vm.startPrank(notTheOwner);
+
+        uint256 price_ = 10;
+
+        vm.expectRevert("You are not the NFT owner");
+        marketplace.listNft(address(mockNft), tokenId, price_);
+
+        vm.stopPrank();
+    }
+
+    function testNftListingWorksCorrectly() public {
+        vm.startPrank(user);
+
+        uint256 price_ = 10;
+
+        (address sellerBefore,,,) = marketplace.listings(address(mockNft), tokenId);
+        marketplace.listNft(address(mockNft), tokenId, price_);
+        (address sellerAfter,,,) = marketplace.listings(address(mockNft), tokenId);
+        
+        assert(sellerBefore == address(0));
+        assert(sellerAfter == user);
+
+        vm.stopPrank();
     }
 }
