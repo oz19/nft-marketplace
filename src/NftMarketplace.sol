@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.34;
 
-import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 
-contract NftMarketplace is Ownable {
+contract NftMarketplace is ReentrancyGuard {
 
     struct Listing {
         address seller;
@@ -19,10 +19,8 @@ contract NftMarketplace is Ownable {
 
     event NftListed(address indexed seller, address indexed nftCollection, uint256 indexed tokenId, uint256 price);
     event NftListingCancelled(address indexed seller, address indexed nftCollection, uint256 indexed tokenId);
+    event NftSold(address indexed buyer, address indexed seller, address indexed nftCollection, uint256 tokenId, uint256 price);
 
-    constructor () Ownable(msg.sender) {
-
-    }
 
     function listNft(address nftCollection_, uint256 tokenId_, uint256 price_) external {
 
@@ -51,6 +49,21 @@ contract NftMarketplace is Ownable {
         delete listings[nftCollection_][tokenId_];
 
         emit NftListingCancelled(listing_.seller, listing_.nftCollection, listing_.tokenId);
+    }
+
+    function buyNft(address nftCollection_, uint256 tokenId_) external payable nonReentrant {
+        Listing memory listing_ = listings[nftCollection_][tokenId_];
+        require(listing_.nftCollection != address(0), "That NFT is not listed");
+        require(msg.value == listing_.price, "Incorrect price");
+
+        delete listings[nftCollection_][tokenId_];
+
+        IERC721(nftCollection_).safeTransferFrom(listing_.seller, msg.sender, tokenId_);
+
+        (bool success, ) = listing_.seller.call{value: listing_.price}("");
+        require(success, "Transfer failed");
+
+        emit NftSold(msg.sender, listing_.seller, listing_.nftCollection, listing_.tokenId, listing_.price);
     }
 
 }
