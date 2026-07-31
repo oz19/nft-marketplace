@@ -115,4 +115,73 @@ contract TestNftMarketplace is Test {
 
         vm.stopPrank();
     }
+
+    function testTryingToBuyNonListedNftShouldRevert() public {
+        address buyer = vm.addr(3);
+        vm.startPrank(buyer);
+
+        vm.expectRevert("That NFT is not listed");
+        marketplace.buyNft(address(mockNft), tokenId);
+
+        vm.stopPrank();
+    }
+
+    function testPayingDifferentPriceShouldRevert() public {
+        vm.startPrank(user);
+
+        uint256 price = 10;
+        (address sellerBefore,,,) = marketplace.listings(address(mockNft), tokenId);
+        marketplace.listNft(address(mockNft), tokenId, price);
+        (address sellerAfter,,,) = marketplace.listings(address(mockNft), tokenId);
+
+        assert(sellerBefore == address(0) && sellerAfter == user);
+
+        vm.stopPrank();
+
+        address buyer = vm.addr(3);
+        vm.startPrank(buyer);
+
+        vm.deal(buyer, price-1);  // Add fake ether to `buyer`
+        vm.expectRevert("Incorrect price");
+        marketplace.buyNft{value: price-1}(address(mockNft), tokenId);
+
+        vm.stopPrank();
+    }
+
+    function testBuyNftWorksCorrectly() public {
+        vm.startPrank(user);
+
+        // Approve the marketplace to operate on `tokenId`, AKA user's NFT.
+        mockNft.approve(address(marketplace), tokenId);
+
+        uint256 price = 10;
+        (address sellerBefore,,,) = marketplace.listings(address(mockNft), tokenId);
+        marketplace.listNft(address(mockNft), tokenId, price);
+        (address sellerAfter,,,) = marketplace.listings(address(mockNft), tokenId);
+
+        assert(sellerBefore == address(0) && sellerAfter == user);
+
+        vm.stopPrank();
+
+        address buyer = vm.addr(3);
+        vm.startPrank(buyer);
+        vm.deal(buyer, price);  // Add fake ether to `buyer`
+
+        uint256 userBalanceBefore = user.balance;
+        (address sellerBeforeSale,,,) = marketplace.listings(address(mockNft), tokenId);
+        address oldOwner = mockNft.ownerOf(tokenId);
+
+        marketplace.buyNft{value: price}(address(mockNft), tokenId);
+
+        uint256 userBalanceAfter = user.balance;
+        assert(userBalanceAfter - userBalanceBefore == price);
+
+        (address sellerAfterSale,,,) = marketplace.listings(address(mockNft), tokenId);
+        assert(sellerBeforeSale == user && sellerAfterSale == address(0));
+
+        address newOwner = mockNft.ownerOf(tokenId);
+        assert(oldOwner == user && newOwner == buyer);
+
+        vm.stopPrank();
+    }
 }
